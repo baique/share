@@ -55,6 +55,21 @@ test('文件传输：A 注册文件发元数据，B 下载内容一致', async (
   }
 });
 
+test('双路径（sync历史 + push推送）同一消息不重复入库', async () => {
+  const b = await createApp();
+  try {
+    const msg = { id: 'dup-path', type: 'text', from: 'A', time: Date.now(), text: 'hi' };
+    // 路径②：sync 拉历史入库
+    b.history.add(msg);
+    // 路径①：A 直接 push 给 B
+    await pushMessage({ id: 'a', name: 'A', ip: '127.0.0.1', port: b.server.tcpPort }, msg);
+    await new Promise(r => setTimeout(r, 200));
+    assert.equal(b.history.getAll().filter(x => x.id === 'dup-path').length, 1);
+  } finally {
+    await b.runtime.quit(true);
+  }
+});
+
 test('文件名冲突：已存在时追加 (1) 后缀', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'share-int-'));
   const srcDir = path.join(dir, 'src');

@@ -28,3 +28,12 @@ test('getAll 返回副本，外部修改不影响内部', () => {
   list.pop();
   assert.equal(h.getAll().length, 1);
 });
+
+test('add 同 id 幂等去重（push/sync 双路径不重复）', () => {
+  const h = createHistory({ now: () => 1000 });
+  const msg = { id: 'dup', type: 'text', from: 'X', time: 1000, text: 'hi' };
+  assert.equal(h.add(msg), true);
+  assert.equal(h.add({ ...msg }), false);
+  assert.equal(h.add({ ...msg }), false);
+  assert.equal(h.getAll().length, 1);
+});
