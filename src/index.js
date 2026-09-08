@@ -1,6 +1,7 @@
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
+import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import { statSync } from 'node:fs';
 import { createHistory } from './history.js';
@@ -86,6 +87,12 @@ export async function createApp({ directIp } = {}) {
       history.add(msg);
       refresh();
       for (const n of nodes.all()) pushMessage(n, msg);
+    },
+
+    copyText(text) {
+      const cmd = process.platform === 'darwin' ? 'pbcopy' : process.platform === 'win32' ? 'clip' : 'xclip';
+      execFileSync(cmd, { input: text });
+      return true;
     },
 
     sendFile(filePath) {
