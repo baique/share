@@ -8,7 +8,7 @@
   "engines": { "node": ">=18" },
   "scripts": {
     "start": "node bin/share.js",
-    "test": "node --test test/"
+    "test": "node --test"
   },
   "dependencies": {
     "ink": "^5.0.0",

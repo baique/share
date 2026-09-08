@@ -1,7 +1,8 @@
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { writeFile, statSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import { statSync } from 'node:fs';
 import { createHistory } from './history.js';
 import { createNodeList } from './node-list.js';
 import { createServer } from './server.js';
