@@ -1,6 +1,6 @@
 {
   "name": "@baique/share",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "局域网聊天室式共享终端：mDNS 自动发现，文本/文件即发即达",
   "type": "module",
   "bin": {
