@@ -13,7 +13,7 @@ test('prune 移除超过 30 分钟的消息', () => {
   let t = 0;
   const h = createHistory({ now: () => t });
   h.add({ id: 'old', type: 'text', from: 'X', time: 0, text: 'x' });
-  h.add({ id: 'new', type: 'text', from: 'X', time: 1000, text: 'y' });
+  h.add({ id: 'new', type: 'text', from: 'X', time: 2000, text: 'y' }); // 年龄 < 30min，存活
   t = 30 * 60 * 1000 + 1001;
   h.prune();
   assert.deepEqual(h.getAll().map(m => m.id), ['new']);
