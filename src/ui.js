@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput, useStdout, render } from 'ink';
 import { existsSync } from 'node:fs';
 
@@ -17,29 +17,19 @@ function App({ runtime }) {
   const [status, setStatus] = useState([]);
   const [, setTick] = useState(0);
   const { stdout } = useStdout();
-  const focusRef = useRef(focus);
-  const inputRef = useRef(input);
-  focusRef.current = focus;
-  inputRef.current = input;
 
   const messages = runtime.messages;
-  const viewport = Math.max((stdout.rows || 24) - 4, 5);
+  const viewport = Math.max((stdout.rows || 24) - 5, 5);
 
-  // 新消息到达时，输入模式下自动跳到最新；选择模式保持浏览位置
-  useEffect(() => {
-    if (!runtime.events) return;
-    const handler = () => {
-      setTick(t => t + 1);
-      if (focusRef.current === 'input') setSelected(Math.max(runtime.messages.length - 1, 0));
-    };
-    runtime.events.on('update', handler);
-    return () => runtime.events.off('update', handler);
-  }, [runtime]);
+  // 全部可变状态走 ref，供稳定的按键 handler 读取
+  const stateRef = useRef({ focus: 'input', input: '', messages: [], selected: 0 });
+  stateRef.current = { focus, input, messages, selected };
 
-  const pushStatus = (s) => setStatus(prev => [...prev, s].slice(-5));
+  const pushStatus = useCallback((s) => setStatus(prev => [...prev, s].slice(-2)), []);
 
-  const operate = (action) => {
-    const m = messages[selected];
+  const operate = useCallback((action) => {
+    const { messages: msgs, selected: sel } = stateRef.current;
+    const m = msgs[sel];
     if (!m) return;
     if (action === 'copy' && m.type === 'text') {
       try {
@@ -57,9 +47,9 @@ function App({ runtime }) {
     } else {
       pushStatus(action === 'copy' ? '该消息不是文本' : '该消息不是文件');
     }
-  };
+  }, [runtime, pushStatus]);
 
-  const submit = async (value) => {
+  const submit = useCallback(async (value) => {
     const trimmed = value.trim();
     if (!trimmed) return;
     setInput('');
@@ -69,33 +59,46 @@ function App({ runtime }) {
     } else {
       await runtime.sendText(trimmed);
     }
-  };
+  }, [runtime, pushStatus]);
 
-  useInput((ch, key) => {
-    // 全局：Ctrl+C 退出
+  // 稳定 handler：只在 runtime 变化时重注册，避免按键事件丢失
+  const handler = useCallback((ch, key) => {
+    const s = stateRef.current;
     if (key.ctrl && ch === 'c') { runtime.quit(); return; }
 
-    if (focus === 'list') {
+    if (s.focus === 'list') {
       if (ch === 'q') { runtime.quit(); return; }
-      if (key.upArrow) { setSelected(s => Math.max(s - 1, 0)); return; }
-      if (key.downArrow) { setSelected(s => Math.min(s + 1, messages.length - 1)); return; }
+      if (key.upArrow) { setSelected(x => Math.max(x - 1, 0)); return; }
+      if (key.downArrow) { setSelected(x => Math.min(x + 1, s.messages.length - 1)); return; }
       if (ch === 'c') { operate('copy'); return; }
       if (ch === 'd') { operate('download'); return; }
       if (key.tab || key.escape) { setFocus('input'); return; }
-      return; // 列表模式忽略其余按键
+      return;
     }
 
     // focus === 'input'
     if (key.tab) { setFocus('list'); return; }
-    if (key.return) { submit(input); return; }
-    if (key.backspace) { setInput(v => v.slice(0, -1)); return; }
+    if (key.return) { submit(s.input); return; }
+    if (key.backspace || key.delete) { setInput(v => v.slice(0, -1)); return; }
     if (key.escape) { return; }
-    if (ch && !key.ctrl && !key.meta) { setInput(v => v + ch); return; }
-  });
+    if (ch && !key.ctrl && !key.meta) { setInput(v => v + ch); }
+  }, [runtime, operate, submit]);
 
-  // 消息列表视口裁剪，保证选中项可见
+  useInput(handler);
+
+  // 新消息到达：输入模式下自动跳到最新；选择模式保持浏览位置
+  useEffect(() => {
+    if (!runtime.events) return;
+    const onUpdate = () => {
+      setTick(t => t + 1);
+      if (stateRef.current.focus === 'input') setSelected(Math.max(runtime.messages.length - 1, 0));
+    };
+    runtime.events.on('update', onUpdate);
+    return () => runtime.events.off('update', onUpdate);
+  }, [runtime]);
+
   const total = messages.length;
-  let offset = Math.min(Math.max(selected - Math.floor(viewport / 2), 0), Math.max(total - viewport, 0));
+  const offset = Math.min(Math.max(selected - Math.floor(viewport / 2), 0), Math.max(total - viewport, 0));
   const visible = messages.slice(offset, offset + viewport);
 
   const rowFor = (m, idx) => {
@@ -104,26 +107,26 @@ function App({ runtime }) {
       ? `[${fmtTime(m.time)}] ${m.from}: [文件] ${m.file.name}(${fmtSize(m.file.size)})`
       : `[${fmtTime(m.time)}] ${m.from}: ${m.text}`;
     const props = { key: m.id };
-    if (isSel) props.backgroundColor = focus === 'list' ? 'blue' : 'gray';
+    if (isSel) props.inverse = true;
     return h(Text, props, body);
   };
 
   return h(Box, { flexDirection: 'column' },
     h(Box, null,
       h(Text, { bold: true, color: 'green' }, `LAN Share — ${runtime.nodes.length} 台设备在线`),
-      h(Text, { color: focus === 'list' ? 'yellow' : 'gray' }, focus === 'list' ? '  [选择模式]' : '')),
-    h(Box, { flexDirection: 'column', marginTop: 1 },
+      h(Text, { color: focus === 'list' ? 'yellow' : 'gray' }, focus === 'list' ? '  [选择]' : '')),
+    h(Box, { flexDirection: 'column', flexGrow: 1, marginTop: 1 },
       ...visible.map((m, v) => rowFor(m, offset + v)),
-      ...status.map((s, i) => h(Text, { key: 's' + i, color: 'cyan' }, s))),
-    h(Box, { marginTop: 1 },
+      ...status.map((s, i) => h(Text, { key: 'st' + i, color: 'cyan' }, s))),
+    h(Box, null,
       h(Text, { color: 'gray' }, focus === 'list'
-        ? '↑/↓ 选择 · c 复制文本 · d 下载文件 · Tab/Esc 回输入 · q 退出'
-        : '输入文本或文件路径回车发送 · Tab 选择消息 · ↑/↓ 滚动 · Ctrl+C 退出')),
+        ? '↑/↓ 选择 · c 复制 · d 下载 · Tab/Esc 回输入 · q 退出'
+        : '输入文本或文件路径回车发送 · Tab 选择 · Ctrl+C 退出')),
     h(Box, null,
       h(Text, { color: 'gray' }, '› '),
       h(Text, { bold: true }, input)));
 }
 
 export function renderUI(runtime) {
-  return render(h(App, { runtime }));
+  return render(h(App, { runtime }), { exitOnCtrlC: false });
 }
