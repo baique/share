@@ -86,6 +86,11 @@ function App({ runtime }) {
 
     // focus === 'input'
     if (key.tab) { setFocus('list'); return; }
+    // Shift+Enter 换行：识别常见终端 CSI u 序列（iTerm2/Windows Terminal/kitty）与 \r+shift
+    if ((key.return && key.shift) || /^\[13;2/.test(ch) || /^\[27;2;13/.test(ch)) {
+      setInput(v => v + '\n');
+      return;
+    }
     if (key.return) { submit(s.input); return; }
     if (key.backspace || key.delete) { setInput(v => v.slice(0, -1)); return; }
     if (key.escape) { return; }
@@ -129,7 +134,7 @@ function App({ runtime }) {
     h(Box, null,
       h(Text, { color: 'gray' }, focus === 'list'
         ? '↑/↓ 选择 · c 复制 · d 下载 · q 退出 · 字符回输入'
-        : '输入文本或文件路径回车发送 · ↑↓ 选择 · Ctrl+C 退出')),
+        : '输入文本或文件路径回车发送 · Shift+Enter 换行 · ↑↓ 选择 · Ctrl+C 退出')),
     h(Box, null,
       h(Text, { color: 'gray' }, '› '),
       h(Text, { bold: true }, input)));
