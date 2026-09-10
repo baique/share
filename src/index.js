@@ -1,7 +1,7 @@
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import { statSync } from 'node:fs';
 import { createHistory } from './history.js';
@@ -90,9 +90,15 @@ export async function createApp({ directIp } = {}) {
     },
 
     copyText(text) {
-      const cmd = process.platform === 'darwin' ? 'pbcopy' : process.platform === 'win32' ? 'clip' : 'xclip';
-      execFileSync(cmd, { input: text });
-      return true;
+      // 异步 spawn，避免同步阻塞事件循环（pbcopy 慢时会冻结网络收发）
+      return new Promise((resolve, reject) => {
+        const cmd = process.platform === 'darwin' ? 'pbcopy' : process.platform === 'win32' ? 'clip' : 'xclip';
+        const child = spawn(cmd, [], { stdio: ['pipe', 'ignore', 'ignore'] });
+        child.on('error', () => reject(new Error('剪贴板命令不可用: ' + cmd)));
+        child.on('close', (code) => code === 0 ? resolve() : reject(new Error(cmd + ' 退出码 ' + code)));
+        child.stdin.write(text);
+        child.stdin.end();
+      });
     },
 
     sendFile(filePath) {

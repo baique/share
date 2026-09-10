@@ -32,12 +32,11 @@ function App({ runtime }) {
     const m = msgs[sel];
     if (!m) return;
     if (action === 'copy' && m.type === 'text') {
-      try {
-        runtime.copyText(m.text);
+      runtime.copyText(m.text).then(() => {
         pushStatus(`已复制: ${truncate(m.text, 24)}`);
-      } catch (e) {
+      }).catch(e => {
         pushStatus(`复制失败: ${e.message}`);
-      }
+      });
     } else if (action === 'download' && m.type === 'file') {
       runtime.download(m).then(() => {
         pushStatus(`下载完成 → ./${m.file.name}`);
@@ -66,13 +65,22 @@ function App({ runtime }) {
     const s = stateRef.current;
     if (key.ctrl && ch === 'c') { runtime.quit(); return; }
 
+    // 方向键：任意焦点下进入选择模式并移动（快速选择）
+    if (key.upArrow || key.downArrow) {
+      setFocus('list');
+      setSelected(x => key.upArrow
+        ? Math.max(x - 1, 0)
+        : Math.min(x + 1, s.messages.length - 1));
+      return;
+    }
+
     if (s.focus === 'list') {
       if (ch === 'q') { runtime.quit(); return; }
-      if (key.upArrow) { setSelected(x => Math.max(x - 1, 0)); return; }
-      if (key.downArrow) { setSelected(x => Math.min(x + 1, s.messages.length - 1)); return; }
       if (ch === 'c') { operate('copy'); return; }
       if (ch === 'd') { operate('download'); return; }
       if (key.tab || key.escape) { setFocus('input'); return; }
+      // 其他可打印字符 → 自动回输入模式并输入
+      if (ch && !key.ctrl && !key.meta) { setFocus('input'); setInput(v => v + ch); return; }
       return;
     }
 
@@ -81,7 +89,7 @@ function App({ runtime }) {
     if (key.return) { submit(s.input); return; }
     if (key.backspace || key.delete) { setInput(v => v.slice(0, -1)); return; }
     if (key.escape) { return; }
-    if (ch && !key.ctrl && !key.meta) { setInput(v => v + ch); }
+    if (ch && !key.ctrl && !key.meta) { setInput(v => v + ch); return; }
   }, [runtime, operate, submit]);
 
   useInput(handler);
@@ -120,8 +128,8 @@ function App({ runtime }) {
       ...status.map((s, i) => h(Text, { key: 'st' + i, color: 'cyan' }, s))),
     h(Box, null,
       h(Text, { color: 'gray' }, focus === 'list'
-        ? '↑/↓ 选择 · c 复制 · d 下载 · Tab/Esc 回输入 · q 退出'
-        : '输入文本或文件路径回车发送 · Tab 选择 · Ctrl+C 退出')),
+        ? '↑/↓ 选择 · c 复制 · d 下载 · q 退出 · 字符回输入'
+        : '输入文本或文件路径回车发送 · ↑↓ 选择 · Ctrl+C 退出')),
     h(Box, null,
       h(Text, { color: 'gray' }, '› '),
       h(Text, { bold: true }, input)));
