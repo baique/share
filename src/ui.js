@@ -15,6 +15,7 @@ function App({ runtime }) {
   const [input, setInput] = useState('');
   const [selected, setSelected] = useState(0);
   const [status, setStatus] = useState([]);
+  const [cursorOn, setCursorOn] = useState(true);
   const [, setTick] = useState(0);
   const { stdout } = useStdout();
 
@@ -110,6 +111,12 @@ function App({ runtime }) {
     return () => runtime.events.off('update', onUpdate);
   }, [runtime]);
 
+  // 输入光标闪烁（每 500ms 切换可见性）
+  useEffect(() => {
+    const t = setInterval(() => setCursorOn(c => !c), 500);
+    return () => clearInterval(t);
+  }, []);
+
   const total = messages.length;
   const offset = Math.min(Math.max(selected - Math.floor(viewport / 2), 0), Math.max(total - viewport, 0));
   const visible = messages.slice(offset, offset + viewport);
@@ -137,7 +144,7 @@ function App({ runtime }) {
         : '输入文本或文件路径回车发送 · Ctrl+J 换行 · ↑↓ 选择 · Ctrl+C 退出')),
     h(Box, null,
       h(Text, { color: 'gray' }, '› '),
-      h(Text, { bold: true }, input)));
+      h(Text, { bold: true }, input + (focus === 'input' && cursorOn ? '▌' : ' '))));
 }
 
 export function renderUI(runtime) {
