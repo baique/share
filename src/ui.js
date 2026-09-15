@@ -86,8 +86,8 @@ function App({ runtime }) {
 
     // focus === 'input'
     if (key.tab) { setFocus('list'); return; }
-    // Shift+Enter 换行：识别常见终端 CSI u 序列（iTerm2/Windows Terminal/kitty）与 \r+shift
-    if ((key.return && key.shift) || /^\[13;2/.test(ch) || /^\[27;2;13/.test(ch)) {
+    // Ctrl+J（\n）换行：标准终端序列，跨平台可靠；保留 shift+enter 兼容
+    if (ch === '\n' || (key.ctrl && ch === 'j') || (key.return && key.shift) || /^\[13;2/.test(ch) || /^\[27;2;13/.test(ch)) {
       setInput(v => v + '\n');
       return;
     }
@@ -134,7 +134,7 @@ function App({ runtime }) {
     h(Box, null,
       h(Text, { color: 'gray' }, focus === 'list'
         ? '↑/↓ 选择 · c 复制 · d 下载 · q 退出 · 字符回输入'
-        : '输入文本或文件路径回车发送 · Shift+Enter 换行 · ↑↓ 选择 · Ctrl+C 退出')),
+        : '输入文本或文件路径回车发送 · Ctrl+J 换行 · ↑↓ 选择 · Ctrl+C 退出')),
     h(Box, null,
       h(Text, { color: 'gray' }, '› '),
       h(Text, { bold: true }, input)));
