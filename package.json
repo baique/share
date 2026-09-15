@@ -1,7 +1,16 @@
 {
   "name": "@baique/share",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "局域网聊天室式共享终端：mDNS 自动发现，文本/文件即发即达",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/baique/share.git"
+  },
+  "homepage": "https://github.com/baique/share",
+  "bugs": {
+    "url": "https://github.com/baique/share/issues"
+  },
   "type": "module",
   "bin": {
     "share": "bin/share.js"
